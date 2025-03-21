@@ -18,9 +18,11 @@ public class NEFTController {
     private NEFTService neftService;
 
     @PostMapping("/transfer")
-    public ResponseEntity<TransactionResponseDTO> transferMoney(@Valid @RequestBody NEFTtransferRequestDto nefTtransferRequestDto) throws Exception {
-        TransactionResponseDTO response = neftService.transferMoney(nefTtransferRequestDto, "dummy");
+    public ResponseEntity<TransactionResponseDTO> transferMoney(
+            @RequestHeader("X-User-Id") String userId,
+            @Valid @RequestBody NEFTtransferRequestDto nefTtransferRequestDto
+    ) throws Exception {
+        TransactionResponseDTO response = neftService.transferMoney(nefTtransferRequestDto, userId);
         return ResponseEntity.ok(response);
     }
-
 }

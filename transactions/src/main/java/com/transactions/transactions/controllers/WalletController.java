@@ -1,6 +1,5 @@
 package com.transactions.transactions.controllers;
 
-import com.transactions.transactions.dtos.TransactionResponseDTO;
 import com.transactions.transactions.dtos.WalletTransactionResponseDTO;
 import com.transactions.transactions.dtos.WalletTransferRequestDto;
 import com.transactions.transactions.exceptions.TransactionRequestFailedException;
@@ -32,8 +31,11 @@ public class WalletController {
     }
 
     @PostMapping("/transfer")
-    public ResponseEntity<WalletTransactionResponseDTO> transferMoney(@Valid @RequestBody WalletTransferRequestDto transferRequest) throws Exception {
-        var response = walletService.transferMoney(transferRequest);
+    public ResponseEntity<WalletTransactionResponseDTO> transferMoney(
+            @RequestHeader("X-User-Id") String userId,
+            @Valid @RequestBody WalletTransferRequestDto transferRequest
+    ) throws Exception {
+        var response = walletService.transferMoney(transferRequest, userId);
         return ResponseEntity.ok(response);
     }
 

@@ -1,5 +1,6 @@
 package com.transactions.transactions.utils;
 
+import com.transactions.transactions.dtos.MessageInfoDto;
 import com.transactions.transactions.dtos.TransactionResponseDTO;
 import com.transactions.transactions.dtos.WalletTransactionResponseDTO;
 import com.transactions.transactions.entities.Transaction;
@@ -31,4 +32,5 @@ public class UtilClass {
                 transaction.getCreatedAt() == null ? LocalDateTime.now() : transaction.getCreatedAt()
         );
     }
+
 }

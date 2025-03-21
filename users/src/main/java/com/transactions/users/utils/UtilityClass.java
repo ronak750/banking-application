@@ -4,14 +4,18 @@ import com.transactions.users.dtos.UserDTO;
 import com.transactions.users.dtos.UserResponseDTO;
 import com.transactions.users.entities.AccountStatusEnum;
 import com.transactions.users.entities.Users;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 
 public class UtilityClass {
 
     public static Users convertUserDtoToUser(UserDTO userDTO, Users user) {
+        PasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
+
         user.setName(userDTO.name());
         user.setEmail(userDTO.email());
         user.setMobileNumber(userDTO.mobileNumber());
-        user.setPassword(userDTO.password());
+        user.setPassword(passwordEncoder.encode(userDTO.password()));
         user.setStatus(AccountStatusEnum.ACTIVE);
         return user;
     }

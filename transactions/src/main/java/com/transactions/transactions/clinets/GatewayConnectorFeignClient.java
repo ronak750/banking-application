@@ -8,14 +8,14 @@ import com.transactions.transactions.dtos.request.UPIBalanceCheckRequestDto;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotEmpty;
 import org.springframework.cloud.openfeign.FeignClient;
-import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 
 import java.math.BigDecimal;
 import java.util.List;
 
-@FeignClient(url = "http://localhost:9000/", name = "gatewayConnector")
+//@FeignClient(url = "http://localhost:9000/", name = "gatewayConnector")
+@FeignClient(name = "gatewayconnector", fallback = FallbackFeign.class)
 public interface GatewayConnectorFeignClient {
 
     @PostMapping(value = "api/v1/connector-gateway/transfer-wallet-money", consumes = "application/json")

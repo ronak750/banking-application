@@ -1,10 +1,7 @@
 package com.transactions.transactions.services;
 
 import com.transactions.transactions.clinets.GatewayConnectorFeignClient;
-import com.transactions.transactions.dtos.TransactionResponseDTO;
-import com.transactions.transactions.dtos.TransactionStatus;
-import com.transactions.transactions.dtos.WalletTransactionResponseDTO;
-import com.transactions.transactions.dtos.WalletTransferRequestDto;
+import com.transactions.transactions.dtos.*;
 import com.transactions.transactions.entities.Transaction;
 import com.transactions.transactions.entities.TransactionType;
 import com.transactions.transactions.exceptions.InvalidFieldException;
@@ -12,6 +9,9 @@ import com.transactions.transactions.exceptions.TransactionRequestFailedExceptio
 import com.transactions.transactions.repos.TransactionRepo;
 import com.transactions.transactions.utils.UtilClass;
 import lombok.AllArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.cloud.stream.function.StreamBridge;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -25,8 +25,11 @@ import static com.transactions.transactions.utils.UtilClass.convertTransactionTo
 public class WalletService {
 
     private GatewayConnectorFeignClient gatewayConnectorFeignClient;
-
+    private final StreamBridge streamBridge;
     private final TransactionRepo transactionRepo;
+
+    private static final Logger log = LoggerFactory.getLogger(WalletService.class);
+
 
     public BigDecimal getBalance(Long walletId) throws TransactionRequestFailedException {
         if(walletId <= 0) {
@@ -40,7 +43,7 @@ public class WalletService {
 
     }
 
-    public WalletTransactionResponseDTO transferMoney(WalletTransferRequestDto transferRequest) throws Exception {
+    public WalletTransactionResponseDTO transferMoney(WalletTransferRequestDto transferRequest, String userId) throws Exception {
 
         if(transactionRepo.findById(transferRequest.transactionId()).isPresent()) {
             throw new InvalidFieldException("Duplicate transfer request received");
@@ -66,6 +69,10 @@ public class WalletService {
             transaction.setTransactionStatus(gcTransactionResponseDto.getStatus());
             transaction.setDescription(gcTransactionResponseDto.getRemarks());
             transactionRepo.save(transaction);
+            sendNotification(
+                    "Transaction with id " + transaction.getTransactionId() + " has been " + gcTransactionResponseDto.getStatus(),
+                    userId
+            );
 
             return convertTransactionToWalletTransactionResponseDto(transaction);
 
@@ -73,6 +80,10 @@ public class WalletService {
             transaction.setTransactionStatus(TransactionStatus.FAILED);
             transaction.setDescription(e.getMessage());
             transactionRepo.save(transaction);
+            sendNotification(
+                    "Transaction with id " + transaction.getTransactionId() + " has failed.",
+                    userId
+            );
             throw new TransactionRequestFailedException(e.getMessage());
         }
     }
@@ -84,6 +95,9 @@ public class WalletService {
                 .filter(transaction -> transaction.getTransactionType().equals(TransactionType.Wallet))
                 .map(UtilClass::convertTransactionToWalletTransactionResponseDto)
                 .toList();
+    }
+    private void sendNotification(String message, String userId) {
+        streamBridge.send("send-communication-out-0", new MessageInfoDto(userId, message));
     }
 
     private Transaction createTransactionDoaFromTransferRequest(WalletTransferRequestDto transferRequest) {

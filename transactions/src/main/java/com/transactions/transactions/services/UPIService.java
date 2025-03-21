@@ -11,6 +11,7 @@ import com.transactions.transactions.exceptions.TransactionRequestFailedExceptio
 import com.transactions.transactions.repos.TransactionRepo;
 import com.transactions.transactions.utils.UtilClass;
 import lombok.AllArgsConstructor;
+import org.springframework.cloud.stream.function.StreamBridge;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -23,6 +24,8 @@ public class UPIService {
 
     private final TransactionRepo transactionRepo;
     private GatewayConnectorFeignClient gatewayConnectorFeignClient;
+    private final StreamBridge streamBridge;
+
 
 
     public boolean validateUPIid(String upi) {
@@ -30,7 +33,7 @@ public class UPIService {
     }
 
 
-    public TransactionResponseDTO transfer(UPITransferRequestDTO upiTransferRequestDTO) throws TransactionRequestFailedException {
+    public TransactionResponseDTO transfer(UPITransferRequestDTO upiTransferRequestDTO, String userId) throws TransactionRequestFailedException {
         if(transactionRepo.findById(upiTransferRequestDTO.transactionId()).isPresent()) {
             throw new InvalidFieldException("Duplicate transfer request received");
         }
@@ -58,6 +61,11 @@ public class UPIService {
 
             gcTransactionResponseDto.setFrom(upiTransferRequestDTO.fromUpiId());
             gcTransactionResponseDto.setTo(upiTransferRequestDTO.toUpiId());
+            sendTransactionNotification(
+                    "Transaction with id " + transaction.getTransactionId() + " has been " + gcTransactionResponseDto.getStatus(),
+                    userId
+            );
+
             return gcTransactionResponseDto;
 
         } catch (Exception e) {
@@ -65,6 +73,11 @@ public class UPIService {
             transaction.setUpdatedAt(LocalDateTime.now());
             transaction.setDescription(e.getMessage());
             transactionRepo.save(transaction);
+            sendTransactionNotification(
+                    "Transaction with id " + transaction.getTransactionId() + " has failed.",
+                    userId
+            );
+
             throw new TransactionRequestFailedException(e.getMessage());
         }
     }
@@ -84,6 +97,10 @@ public class UPIService {
                 .filter(transaction -> transaction.getTransactionType().equals(TransactionType.UPI))
                 .map(UtilClass::convertTransactionToTransactionResponseDto)
                 .toList();
+    }
+
+    private void sendTransactionNotification(String message, String userId) {
+        streamBridge.send("send-communication-out-0", new MessageInfoDto(userId, message));
     }
 
     private Transaction createTransactionDoaFromTransferRequest(UPITransferRequestDTO transferRequest) {

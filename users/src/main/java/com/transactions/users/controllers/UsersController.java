@@ -12,7 +12,7 @@ import org.springframework.web.bind.annotation.*;
 
 @AllArgsConstructor
 @RestController
-@RequestMapping("api/v1/users")
+@RequestMapping("api/v1")
 @Validated
 public class UsersController {
 

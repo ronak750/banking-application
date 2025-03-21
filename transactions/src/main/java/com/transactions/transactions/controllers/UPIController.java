@@ -36,10 +36,12 @@ public class UPIController {
     }
 
     @PostMapping("/transfer")
-    public ResponseEntity<TransactionResponseDTO> transfer(@Valid
-                                           @RequestBody UPITransferRequestDTO upiTransferRequestDTO) throws TransactionRequestFailedException {
+    public ResponseEntity<TransactionResponseDTO> transfer(
+            @RequestHeader("X-User-Id") String userId,
+            @Valid @RequestBody UPITransferRequestDTO upiTransferRequestDTO
+    ) throws TransactionRequestFailedException {
 
-        var response = upiService.transfer(upiTransferRequestDTO);
+        var response = upiService.transfer(upiTransferRequestDTO, userId);
         return ResponseEntity.ok(response);
     }
 

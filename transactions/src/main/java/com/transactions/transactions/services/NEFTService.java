@@ -1,5 +1,6 @@
 package com.transactions.transactions.services;
 
+import com.transactions.transactions.dtos.MessageInfoDto;
 import com.transactions.transactions.dtos.TransactionResponseDTO;
 import com.transactions.transactions.dtos.TransactionStatus;
 import com.transactions.transactions.dtos.request.NEFTtransferRequestDto;
@@ -10,6 +11,7 @@ import com.transactions.transactions.exceptions.InvalidFieldException;
 import com.transactions.transactions.repos.NEFTTransactionProcessingQueueRepo;
 import com.transactions.transactions.repos.TransactionRepo;
 import lombok.AllArgsConstructor;
+import org.springframework.cloud.stream.function.StreamBridge;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -19,7 +21,7 @@ import java.time.LocalDateTime;
 public class NEFTService {
 
     private final TransactionRepo transactionRepo;
-
+    private final StreamBridge streamBridge;
     private final NEFTTransactionProcessingQueueRepo neftTransactionProcessingQueueRepo;
 
     public TransactionResponseDTO transferMoney(NEFTtransferRequestDto nefTtransferRequestDto, String userId) throws Exception {
@@ -43,6 +45,10 @@ public class NEFTService {
 
         transactionRepo.save(transaction);
         neftTransactionProcessingQueueRepo.save(neftProcessingTransaction);
+        sendTransactionNotification(
+                "Transaction with id " + transaction.getTransactionId() + " has been accepted for NEFT transfer",
+                userId
+        );
 
         return TransactionResponseDTO.builder()
                 .transactionId(nefTtransferRequestDto.transactionId())
@@ -52,6 +58,11 @@ public class NEFTService {
                 .to(nefTtransferRequestDto.toAccountNumber().concat("-").concat(nefTtransferRequestDto.toIfscCode()))
                 .time(LocalDateTime.now())
                 .build();
+    }
+
+
+    private void sendTransactionNotification(String message, String userId) {
+        streamBridge.send("send-communication-out-0", new MessageInfoDto(userId, message));
     }
 
     private Transaction createTransactionDoaFromTransferRequest(NEFTtransferRequestDto nefTtransferRequestDto) {
