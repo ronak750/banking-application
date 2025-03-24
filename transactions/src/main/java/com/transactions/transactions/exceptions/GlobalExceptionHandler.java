@@ -1,13 +1,18 @@
 package com.transactions.transactions.exceptions;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.transactions.transactions.dtos.ConnectorApiErrorResponse;
 import com.transactions.transactions.dtos.ErrorResponseDto;
 import feign.FeignException;
-import io.micrometer.core.instrument.config.validate.ValidationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+
+import java.util.Date;
+import java.util.HashMap;
+import java.util.Map;
 
 import static com.transactions.transactions.utils.Constants.*;
 
@@ -38,15 +43,12 @@ public class GlobalExceptionHandler {
         return new ResponseEntity<>(errorResponseDto, HttpStatus.BAD_REQUEST);
     }
 
-    @ExceptionHandler(FeignException.class)
-    public ResponseEntity<ErrorResponseDto> handleFeignException(FeignException e) {
-        if (e.status() == 400) {
-            ErrorResponseDto errorResponseDto = new ErrorResponseDto(RESOURCE_NOT_FOUND, e.getMessage());
-            return ResponseEntity.badRequest().body(errorResponseDto);
-        } else {
-            ErrorResponseDto errorResponseDto = new ErrorResponseDto(INTERNAL_SERVER_ERROR, e.getMessage());
-            return ResponseEntity.internalServerError().body(errorResponseDto);
-        }
+    @ExceptionHandler(ApiException.class)
+    public ResponseEntity<Map<String, Object>> handleApiException(ApiException ex) {
+        Map<String, Object> errorResponse = new HashMap<>();
+        errorResponse.put("errorCode", ex.getErrorCode());
+        errorResponse.put("message", ex.getErrorMessage());
+        return new ResponseEntity<>(errorResponse, HttpStatus.valueOf(ex.getStatusCode()));
     }
 
     @ExceptionHandler(Exception.class)

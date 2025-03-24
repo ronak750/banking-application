@@ -13,20 +13,26 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ErrorResponseDto> handleValidationExceptions(MethodArgumentNotValidException ex) {
-        ErrorResponseDto errorResponseDto = new ErrorResponseDto("Invalid Field", ex.getMessage());
+        ErrorResponseDto errorResponseDto = new ErrorResponseDto(
+                "Invalid Field", ex.getMessage(), HttpStatus.BAD_REQUEST
+        );
         return new ResponseEntity<>(errorResponseDto, HttpStatus.BAD_REQUEST);
     }
 
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<ErrorResponseDto> handleValidationExceptions(IllegalArgumentException ex) {
-        ErrorResponseDto errorResponseDto = new ErrorResponseDto("Invalid Field", ex.getMessage());
+        ErrorResponseDto errorResponseDto = new ErrorResponseDto(
+                "Invalid Field", ex.getMessage(), HttpStatus.BAD_REQUEST
+        );
         return new ResponseEntity<>(errorResponseDto, HttpStatus.BAD_REQUEST);
     }
 
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponseDto> handleException(Exception ex) {
-        ErrorResponseDto errorResponseDto = new ErrorResponseDto("Internal Server Error", ex.getMessage());
+        ErrorResponseDto errorResponseDto = new ErrorResponseDto(
+                "Internal Server Error", ex.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR
+        );
         return new ResponseEntity<>(errorResponseDto, HttpStatus.INTERNAL_SERVER_ERROR);
     }
 }

@@ -2,6 +2,7 @@ package com.transactions.users.controllers;
 
 import com.transactions.users.dtos.UserDTO;
 import com.transactions.users.dtos.UserResponseDTO;
+import com.transactions.users.dtos.ValidationRequestDto;
 import com.transactions.users.services.UserService;
 import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
@@ -31,5 +32,10 @@ public class UsersController {
     @GetMapping("/{id}/active")
     public boolean getUserActiveStatus(@PathVariable Long id) {
         return userService.isActiveUser(id);
+    }
+
+    @PostMapping("/validate")
+    public boolean validateUser(@Valid @RequestBody ValidationRequestDto validationRequestDto) {
+        return userService.validateUser(validationRequestDto);
     }
 }

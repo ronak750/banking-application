@@ -24,8 +24,8 @@ public class ApiGatewayApplication {
 				.route(p -> p
 						.path("/users/**")
 						.filters( f -> f.rewritePath("/users/(?<segment>.*)","/${segment}")
-								.circuitBreaker(config -> config.setName("usersCircuitBreaker")
-										.setFallbackUri("forward:/contactSupport"))
+//								.circuitBreaker(config -> config.setName("usersCircuitBreaker")
+//										.setFallbackUri("forward:/contactSupport"))
 								.retry(retryConfig -> retryConfig.setRetries(3)
 										.setBackoff(Duration.ofMillis(100),Duration.ofMillis(1000),2,true))
 						)

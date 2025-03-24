@@ -23,8 +23,13 @@ public class MessageFunctions {
     @Bean
     public Function<MessageInfoDto,MessageInfoDto> email() {
         return messageInfoDto -> {
-            UserResponseDTO user = usersServiceFeignClient.getUser(Long.valueOf(messageInfoDto.userId()));
-            log.info("Sending email at {} with the details : {}", user.email(), messageInfoDto.message());
+            try{
+                UserResponseDTO user = usersServiceFeignClient.getUser(Long.valueOf(messageInfoDto.userId()));
+                log.info("Sending email at {} with the details : {}", user.email(), messageInfoDto.message());
+            } catch (Exception e){
+                log.info("Failed to send email to user, with id {} ", messageInfoDto.userId());
+            }
+
             return messageInfoDto;
         };
     }
@@ -32,8 +37,13 @@ public class MessageFunctions {
     @Bean
     public Function<MessageInfoDto,MessageInfoDto> sms() {
         return messageInfoDto -> {
-            UserResponseDTO user = usersServiceFeignClient.getUser(Long.valueOf(messageInfoDto.userId()));
-            log.info("Sending sms at {} with the details : {}", user.mobileNumber(), messageInfoDto.message());
+            try{
+                UserResponseDTO user = usersServiceFeignClient.getUser(Long.valueOf(messageInfoDto.userId()));
+                log.info("Sending sms at {} with the details : {}", user.mobileNumber(), messageInfoDto.message());
+            } catch (Exception e){
+                log.info("Failed to send sms to user, with id {} ", messageInfoDto.userId());
+            }
+
             return messageInfoDto;
         };
     }

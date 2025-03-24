@@ -15,7 +15,8 @@ import java.math.BigDecimal;
 import java.util.List;
 
 //@FeignClient(url = "http://localhost:9000/", name = "gatewayConnector")
-@FeignClient(name = "gatewayconnector", fallback = FallbackFeign.class)
+//@FeignClient(name = "gatewayconnector")
+@FeignClient(name = "gatewayconnector", fallbackFactory = GatewayConnectorFallbackFactory.class)
 public interface GatewayConnectorFeignClient {
 
     @PostMapping(value = "api/v1/connector-gateway/transfer-wallet-money", consumes = "application/json")
