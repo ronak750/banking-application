@@ -1,0 +1,6 @@
+package com.transactions.users.dto.commons;
+
+public enum ResponseStatus {
+    success,
+    error
+}

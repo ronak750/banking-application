@@ -1,6 +1,7 @@
 package com.transactions.api.gateway.controller;
 
-import com.transactions.api.gateway.dtos.LoginDto;
+import com.transactions.api.gateway.dto.LoginDto;
+import com.transactions.api.gateway.dto.commons.APIResponseDTO;
 import com.transactions.api.gateway.service.AuthService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -19,7 +20,7 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    public Mono<ResponseEntity<Map<String, String>>> login(@RequestBody LoginDto credentials) {
+    public Mono<ResponseEntity<APIResponseDTO>> login(@RequestBody LoginDto credentials) {
         return authService.login(credentials);
     }
 

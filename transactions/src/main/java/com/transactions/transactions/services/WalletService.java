@@ -1,17 +1,22 @@
 package com.transactions.transactions.services;
 
 import com.transactions.transactions.clinets.GatewayConnectorFeignClient;
-import com.transactions.transactions.dtos.*;
-import com.transactions.transactions.entities.Transaction;
-import com.transactions.transactions.entities.TransactionType;
-import com.transactions.transactions.exceptions.ApiException;
-import com.transactions.transactions.exceptions.InvalidFieldException;
+import com.transactions.transactions.dto.*;
+import com.transactions.transactions.dto.request.WalletTransactionResponseDTO;
+import com.transactions.transactions.dto.request.WalletTransferRequestDto;
+import com.transactions.transactions.dto.response.GatewayConnectorBalanceResponseDTO;
+import com.transactions.transactions.entity.Transaction;
+import com.transactions.transactions.entity.TransactionType;
+import com.transactions.transactions.exception.ApiException;
+import com.transactions.transactions.exception.InvalidFieldException;
 import com.transactions.transactions.repos.TransactionRepo;
+import com.transactions.transactions.utils.MessageTemplates;
 import com.transactions.transactions.utils.UtilClass;
 import lombok.AllArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.cloud.stream.function.StreamBridge;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -38,20 +43,17 @@ public class WalletService {
      */
     public BigDecimal getBalance(Long walletId) throws ApiException {
         log.info("Fetching wallet balance for {}", walletId);
-        if(walletId <= 0) {
-            log.info("Invalid wallet id {} provided", walletId);
-            throw new InvalidFieldException("Invalid wallet id provided");
-        }
+        validateWalletId(walletId);
         try {
-            BigDecimal balance = gatewayConnectorFeignClient.checkWalletBalance(walletId.toString());
+            GatewayConnectorBalanceResponseDTO balanceResponseDto = gatewayConnectorFeignClient.checkWalletBalance(walletId.toString());
+            BigDecimal balance = UtilClass.fetchBalanceFromGatewayConnectorBalanceResponseDTO(balanceResponseDto);
             log.info("Wallet balance successfully fetched for {}", walletId);
             return balance;
         } catch (ApiException ex) {
-            log.info("Failed to fetch wallet balance for wallet id {} with error {}", walletId, ex.getMessage());
+            log.info("Failed to fetched wallet balance for {}", walletId);
             throw ex;
         }
     }
-
 
     /**
      * Transfers money between wallets based on the transfer request
@@ -64,6 +66,85 @@ public class WalletService {
 
         log.info("Initiating wallet transfer for transaction ID {}", transferRequest.transactionId());
 
+        validateTransferRequest(transferRequest);
+
+        Transaction transaction = createTransactionDoaFromTransferRequest(transferRequest);
+
+        transactionRepo.save(transaction);
+
+        try{
+            var gcTransactionResponseDto = gatewayConnectorFeignClient
+                    .transferWalletMoney(transferRequest);
+            var transactionResponseDTO = UtilClass.fetchTransactionFromGatewayConnectorResponseDTO(gcTransactionResponseDto);
+
+            transaction.setTransactionStatus(transactionResponseDTO.getStatus());
+            transaction.setDescription(transactionResponseDTO.getRemarks());
+            transactionRepo.save(transaction);
+            sendNotification(
+                    MessageTemplates.prepareTransactionMessage(
+                            TransactionType.Wallet,
+                            transaction.getTransactionId(),
+                            transactionResponseDTO.getStatus()
+                    ),
+                    userId
+            );
+            log.info("Transaction with id {} is successful", transaction.getTransactionId());
+
+            return convertTransactionToWalletTransactionResponseDto(transaction);
+        } catch (ApiException e) {
+            handleTransferFailure(transaction, userId, e.getMessage());
+            log.info("Transaction with id {} has failed", transaction.getTransactionId());
+            throw e;
+        }
+    }
+
+    /**
+     * Retrieves a list of wallet transactions for the given wallet id
+     * @param walletId The wallet id to fetch transactions for
+     * @return A list of wallet transactions
+     */
+    public List<WalletTransactionResponseDTO> getTransactions(String walletId, Pageable pageable) {
+        log.info("Fetching wallet transactions for {}", walletId);
+        return transactionRepo.findBySourceIdOrDestinationIdAndTransactionType(
+                walletId,
+                walletId,
+                TransactionType.Wallet,
+                pageable
+        ).stream()
+                .map(UtilClass::convertTransactionToWalletTransactionResponseDto)
+                .toList();
+    }
+
+    public void sendNotification(String message, String userId) {
+        streamBridge.send("send-communication-out-0", new MessageInfoDto(userId, message));
+    }
+
+    private Transaction createTransactionDoaFromTransferRequest(WalletTransferRequestDto transferRequest) {
+        return Transaction.builder()
+                .transactionId(transferRequest.transactionId())
+                .amount(transferRequest.amount())
+                .sourceId(transferRequest.fromWalletId().toString())
+                .destinationId(transferRequest.toWalletId().toString())
+                .transactionType(TransactionType.Wallet)
+                .transactionStatus(TransactionStatus.PENDING)
+                .build();
+    }
+
+    private void handleTransferFailure(Transaction transaction, String userId, String message) {
+        transaction.setTransactionStatus(TransactionStatus.FAILED);
+        transaction.setDescription(message);
+        transactionRepo.save(transaction);
+        sendNotification(
+                MessageTemplates.prepareTransactionMessage(
+                        TransactionType.Wallet,
+                        transaction.getTransactionId(),
+                        TransactionStatus.FAILED
+                ),
+                userId
+        );
+    }
+
+    private void validateTransferRequest(WalletTransferRequestDto transferRequest) {
         if(transactionRepo.findById(transferRequest.transactionId()).isPresent()) {
             log.info("Duplicate transfer request for transaction ID {}", transferRequest.transactionId());
             throw new InvalidFieldException("Duplicate transfer request received");
@@ -78,65 +159,11 @@ public class WalletService {
             log.info("Transfer attempt to the same wallet for transaction ID {}", transferRequest.transactionId());
             throw new InvalidFieldException("Cannot transfer to the same wallet");
         }
+    }
 
-        Transaction transaction = createTransactionDoaFromTransferRequest(transferRequest);
-
-        transactionRepo.save(transaction);
-
-        try{
-            TransactionResponseDTO gcTransactionResponseDto = gatewayConnectorFeignClient
-                    .transferWalletMoney(transferRequest);
-
-            transaction.setTransactionStatus(gcTransactionResponseDto.getStatus());
-            transaction.setDescription(gcTransactionResponseDto.getRemarks());
-            transactionRepo.save(transaction);
-            sendNotification(
-                    "Transaction with id " + transaction.getTransactionId() + " has been " + gcTransactionResponseDto.getStatus(),
-                    userId
-            );
-            log.info("Transaction with id {} is successful", transaction.getTransactionId());
-
-            return convertTransactionToWalletTransactionResponseDto(transaction);
-        } catch (ApiException e) {
-            transaction.setTransactionStatus(TransactionStatus.FAILED);
-            transaction.setDescription(e.getMessage());
-            transactionRepo.save(transaction);
-            sendNotification(
-                    "Transaction with id " + transaction.getTransactionId() + " has failed.",
-                    userId
-            );
-            log.info("Transaction with id {} has failed with error {}", transaction.getTransactionId(), e.getMessage());
-            throw e;
+    private void validateWalletId(Long walletId) {
+        if (walletId <= 0) {
+            throw new InvalidFieldException("Invalid wallet id" + walletId + " provided");
         }
-    }
-
-    /**
-     * Retrieves a list of wallet transactions for the given wallet id
-     * @param walletId The wallet id to fetch transactions for
-     * @return A list of wallet transactions
-     */
-    public List<WalletTransactionResponseDTO> getTransactions(Long walletId) {
-        log.info("Fetching wallet transactions for {}", walletId);
-        return transactionRepo
-                .findBySourceIdOrDestinationId(walletId.toString(), walletId.toString())
-                .stream()
-                .filter(transaction -> transaction.getTransactionType().equals(TransactionType.Wallet))
-                .map(UtilClass::convertTransactionToWalletTransactionResponseDto)
-                .toList();
-    }
-
-    private void sendNotification(String message, String userId) {
-        streamBridge.send("send-communication-out-0", new MessageInfoDto(userId, message));
-    }
-
-    private Transaction createTransactionDoaFromTransferRequest(WalletTransferRequestDto transferRequest) {
-        return Transaction.builder()
-                .transactionId(transferRequest.transactionId())
-                .amount(transferRequest.amount())
-                .sourceId(transferRequest.fromWalletId().toString())
-                .destinationId(transferRequest.toWalletId().toString())
-                .transactionType(TransactionType.Wallet)
-                .transactionStatus(TransactionStatus.PENDING)
-                .build();
     }
 }

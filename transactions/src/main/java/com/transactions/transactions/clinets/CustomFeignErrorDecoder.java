@@ -1,8 +1,8 @@
 package com.transactions.transactions.clinets;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.transactions.transactions.dtos.ConnectorApiErrorResponse;
-import com.transactions.transactions.exceptions.ApiException;
+import com.transactions.transactions.dto.response.ConnectorApiErrorResponse;
+import com.transactions.transactions.exception.ApiException;
 import feign.Response;
 import feign.codec.ErrorDecoder;
 import org.apache.commons.io.IOUtils;
@@ -27,9 +27,9 @@ public class CustomFeignErrorDecoder implements ErrorDecoder {
 
             // Create a custom exception with the parsed error details
             return new ApiException(
-                    errorResponse.getStatusCode().value(),
-                    errorResponse.getMessage(),
-                    errorResponse.getErrorCode()
+                    errorResponse.getStatusModel().getStatusCode(),
+                    errorResponse.getResponseMsg(),
+                    errorResponse.getStatusModel().getStatusMsg()
             );
         } catch (IOException e) {
             // Fallback if parsing fails

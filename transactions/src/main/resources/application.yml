@@ -2,18 +2,14 @@ spring:
   application:
     name: "transactions"
   jpa:
-    database-platform: org.hibernate.dialect.H2Dialect
-    hibernate:
-      ddl-auto: "none"
     show-sql: true
-  h2:
-    console:
-      enabled: true
+  sql:
+    init:
+      mode: always
   datasource:
-    driverClassName: org.h2.Driver
-    url: jdbc:h2:mem:transactions
-    username: sa
-    password: ''
+    url: jdbc:mysql://localhost:3307/transactionsdb
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
   cloud:
     stream:
       bindings:

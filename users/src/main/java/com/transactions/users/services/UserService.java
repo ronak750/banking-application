@@ -9,6 +9,7 @@ import com.transactions.users.exceptions.DuplicateUserException;
 import com.transactions.users.exceptions.UserNotFoundException;
 import com.transactions.users.repos.UserRepo;
 import com.transactions.users.utils.UtilityClass;
+import jakarta.validation.ValidationException;
 import lombok.AllArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -31,17 +32,16 @@ public class UserService {
 
     /**
      * Save User and return UserResponseDTO
-     * @param userDto
-     * @return UserResponseDTO
+     * @param userDto Input User details, containg details of user
+     * @param headerPhone Mobile number received from header, used for body data verification
+     * @return UserResponseDTO containing user details in case of successful registeration
      * @throws DuplicateUserException if user already registered with same mobile number or email
      */
-    public UserResponseDTO saveUser(UserDTO userDto) {
+    public UserResponseDTO saveUser(UserDTO userDto, String headerPhone) {
         log.info("Attempting to save user with mobile number {} and email {}", userDto.mobileNumber(), userDto.email());
-        Users existingUser = userRepo.findByMobileNumberOrEmail(userDto.mobileNumber(), userDto.email());
-        if(existingUser != null) {
-            log.info("User registration failed to due to user details already registered user with mobile number {} and email {}", userDto.mobileNumber(), userDto.email());
-            throw new DuplicateUserException("User already registered with same mobile number or email");
-        }
+
+        validateUserRequestDto(userDto, headerPhone);
+
         Users user = UtilityClass.convertUserDtoToUser(userDto, new Users());
         Users savedUser = userRepo.save(user);
         log.info("Saved user with user id {}", savedUser.getUserId());
@@ -62,40 +62,36 @@ public class UserService {
     }
 
     /**
-     * Check if user is active
-     * @param id
-     * @return true if user is active
-     * @throws UserNotFoundException if user not found
-     */
-    public boolean isActiveUser(Long id) {
-        Users user = userRepo.findById(id)
-                .orElseThrow(() -> new UserNotFoundException(String.format("User with id %d Not Found", id)));
-        return user.getStatus().equals(AccountStatusEnum.ACTIVE);
-    }
-
-    /**
      * Validate user
-     * @param validationRequestDto
+     * @param validationRequestDto User id and password contained in request body
      * @return true if user is valid
      */
     public boolean validateUser(ValidationRequestDto validationRequestDto) {
         Optional<Users> user = userRepo.findById(validationRequestDto.userId());
-        if(user.isEmpty())
-                return false;
-        else {
-            return  user.get().getStatus().equals(AccountStatusEnum.ACTIVE) &&
-                    doesPasswordMatch(validationRequestDto.password(), user.get().getPassword());
-        }
+        return user.filter(users -> users.getStatus().equals(AccountStatusEnum.ACTIVE) &&
+                doesPasswordMatch(validationRequestDto.password(), users.getPassword())).isPresent();
     }
 
-    /**
-     * Check if raw password matches with encoded password
-     * @param rawPassword
-     * @param encodedPassword
-     * @return true if password matches
-     */
-    public boolean doesPasswordMatch(String rawPassword, String encodedPassword) {
+    private boolean doesPasswordMatch(String rawPassword, String encodedPassword) {
         PasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
         return passwordEncoder.matches(rawPassword, encodedPassword);
+    }
+
+
+    private void validateUserRequestDto(UserDTO userDTO, String headerMobileNumber) {
+        if(!headerMobileNumber.equals(userDTO.mobileNumber())){
+            log.info("User registration failed to due to user details mismatch in body and header");
+            throw new ValidationException("Could not verify user details");
+        }
+
+        checkUserDuplicate(userDTO);
+    }
+
+    private void checkUserDuplicate(UserDTO userDTO) {
+        Users existingUser = userRepo.findByMobileNumberOrEmail(userDTO.mobileNumber(), userDTO.email());
+        if(existingUser != null) {
+            log.info("User registration failed to due to user details already registered user with mobile number {} and email {}", userDTO.mobileNumber(), userDTO.email());
+            throw new DuplicateUserException("User already registered with same mobile number or email");
+        }
     }
 }

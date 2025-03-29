@@ -1,6 +1,6 @@
 package com.transactions.message.function;
 
-import com.transactions.message.clinets.UsersServiceFeignClient;
+import com.transactions.message.clients.UsersServiceFeignClient;
 import com.transactions.message.dto.MessageInfoDto;
 import com.transactions.message.dto.UserResponseDTO;
 import org.slf4j.Logger;
@@ -24,7 +24,8 @@ public class MessageFunctions {
     public Function<MessageInfoDto,MessageInfoDto> email() {
         return messageInfoDto -> {
             try{
-                UserResponseDTO user = usersServiceFeignClient.getUser(Long.valueOf(messageInfoDto.userId()));
+                var userServiceResponseDTO = usersServiceFeignClient.getUser(Long.valueOf(messageInfoDto.userId()));
+                UserResponseDTO user = userServiceResponseDTO.getResponse();
                 log.info("Sending email at {} with the details : {}", user.email(), messageInfoDto.message());
             } catch (Exception e){
                 log.info("Failed to send email to user, with id {} ", messageInfoDto.userId());
@@ -38,7 +39,8 @@ public class MessageFunctions {
     public Function<MessageInfoDto,MessageInfoDto> sms() {
         return messageInfoDto -> {
             try{
-                UserResponseDTO user = usersServiceFeignClient.getUser(Long.valueOf(messageInfoDto.userId()));
+                var userServiceResponseDTO = usersServiceFeignClient.getUser(Long.valueOf(messageInfoDto.userId()));
+                UserResponseDTO user = userServiceResponseDTO.getResponse();
                 log.info("Sending sms at {} with the details : {}", user.mobileNumber(), messageInfoDto.message());
             } catch (Exception e){
                 log.info("Failed to send sms to user, with id {} ", messageInfoDto.userId());

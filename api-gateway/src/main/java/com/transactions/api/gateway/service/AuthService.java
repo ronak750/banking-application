@@ -1,13 +1,19 @@
 package com.transactions.api.gateway.service;
 
-import com.transactions.api.gateway.clients.UserManagementFeignClient;
-import com.transactions.api.gateway.dtos.LoginDto;
+import com.transactions.api.gateway.dto.APITokenResponseDTO;
+import com.transactions.api.gateway.dto.LoginDto;
+import com.transactions.api.gateway.dto.commons.APIResponseDTO;
+import com.transactions.api.gateway.dto.commons.StatusModel;
 import com.transactions.api.gateway.util.JwtUtil;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
 
 import java.util.Map;
+
+import static com.transactions.api.gateway.constant.Constants.INVALID_CREDENTIALS;
+import static com.transactions.api.gateway.constant.Constants.SERVICE_UNAVAILABLE;
 
 @Service
 public class AuthService {
@@ -20,60 +26,39 @@ public class AuthService {
         this.userManagementService = userManagementService;
     }
 
-//    public ResponseEntity<?> login(LoginDto credentials) {
-//        String username = credentials.userId().toString();
-//        String password = credentials.password();
-//
-//        UserDTO userDetails;
-//        try {
-//            userDetails = userManagementFeignClient.getUser(credentials.userId());
-//        } catch (Exception e) {
-//            return ResponseEntity.status(503).body(Map.of("error", "Could not verify your details. Please try after some time"));
-//        }
-//
-//        if (userDetails == null || !doesPasswordMatch(password, userDetails.password())) {
-//            return ResponseEntity.status(401).body(Map.of("error", "Invalid credentials"));
-//        }
-//
-//        String token = jwtUtil.generateToken(username);
-//        return ResponseEntity.ok(Map.of("accessToken", token));
-//    }
-
-
-
-//    public Mono<ResponseEntity<Map<String, String>>> login(LoginDto credentials) {
-//        String username = credentials.userId().toString();
-//        String password = credentials.password();
-//
-//        return userManagementFeignClient.getUser(credentials.userId())
-//                .subscribeOn(Schedulers.boundedElastic())
-//                .flatMap(userDetails -> {
-//                    if (userDetails == null || !doesPasswordMatch(password, userDetails.password())) {
-//                        return Mono.just(ResponseEntity.status(401).body(Map.of("error", "Invalid credentials")));
-//                    }
-//
-//                    String token = jwtUtil.generateToken(username);
-//                    return Mono.just(ResponseEntity.ok(Map.of("accessToken", token)));
-//                })
-//                .onErrorResume(throwable -> {
-//                    return Mono.just(ResponseEntity.status(503).body(Map.of("error", "Could not verify your details. Please try after some time")));
-//                });
-//    }
-
-    public Mono<ResponseEntity<Map<String, String>>> login(LoginDto credentials) {
+    public Mono<ResponseEntity<APIResponseDTO>> login(LoginDto credentials) {
         String username = credentials.userId().toString();
 
         return userManagementService.getUser(credentials)
-                .flatMap(uservalidation -> {
-                    if (uservalidation == null || !uservalidation) {
-                        return Mono.defer(() -> Mono.just(ResponseEntity.status(401).body(Map.of("error", "Invalid credentials or user is blocked"))));
+                .flatMap(userValidation -> {
+                    // Improved null and boolean validation
+                    if (Boolean.FALSE.equals(userValidation)) {
+                        return Mono.just(ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                                .body(APIResponseDTO.builder()
+                                        .responseMsg("Invalid credentials or user is blocked")
+                                        .statusModel(new StatusModel(401, INVALID_CREDENTIALS))
+                                        .build()
+                                )
+                        );
                     }
 
+                    // Generate token and create successful response
                     String token = jwtUtil.generateToken(username);
-                    return Mono.defer(() -> Mono.just(ResponseEntity.ok(Map.of("accessToken", token))));
+                    return Mono.just(ResponseEntity.ok(
+                            APIResponseDTO.builder()
+                                    .responseMsg("Login successful")
+                                    .response(new APITokenResponseDTO(token))
+                                    .statusModel(new StatusModel(200, "SUCCESS"))
+                                    .build()
+                    ));
                 })
-                .onErrorResume(throwable ->
-                        Mono.defer(() -> Mono.just(ResponseEntity.status(503).body(Map.of("error", "Could not verify your details. Please try after some time"))))
-                );
+                .onErrorResume(throwable -> {
+                    return Mono.just(ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                            .body(APIResponseDTO.builder()
+                                    .responseMsg("Could not verify your details. Please try after some time")
+                                    .statusModel(new StatusModel(503, SERVICE_UNAVAILABLE))
+                                    .build()
+                            ));
+                });
     }
 }

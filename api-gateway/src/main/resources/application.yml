@@ -8,8 +8,8 @@ spring:
           enabled: false
           lowerCaseServiceId: true
       httpclient:
-        connect-timeout: 1000
-        response-timeout: 5s
+        connect-timeout: 2000
+        response-timeout: 10s
 
 management:
   endpoints:
@@ -53,6 +53,6 @@ resilience4j.circuitbreaker:
       waitDurationInOpenState: 10000
 
 jwt:
-  secret: "YourSuperSecureJwtSigningKeyAAtLeast32BytesLong1234567890abcdefghijklmnopqrstuvA"
+  secret: ${JWT_SECRET}
 
 #todo implement ignore rerty for some exception

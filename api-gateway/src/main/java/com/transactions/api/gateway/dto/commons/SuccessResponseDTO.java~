@@ -1,0 +1,14 @@
+package com.transactions.api.gateway.dtos.commons;
+
+import lombok.*;
+
+@Getter
+@Setter
+public class SuccessResponseDTO<T> extends BaseResponseDTO {
+  private T data;
+
+  public SuccessResponseDTO(T data, String message) {
+    super(ResponseStatus.success, message);
+    this.data = data;
+  }
+}
