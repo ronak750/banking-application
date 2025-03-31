@@ -8,6 +8,7 @@ import com.transactions.transactions.dto.request.UPITransferRequestDTO;
 import com.transactions.transactions.dto.request.UPIValidationRequestDTO;
 import com.transactions.transactions.dto.response.BalanceResponseDTO;
 import com.transactions.transactions.dto.response.TransactionResponseDTO;
+import com.transactions.transactions.dto.response.ValidationResponseDTO;
 import com.transactions.transactions.services.UPIService;
 import com.transactions.transactions.utils.UtilClass;
 import jakarta.validation.Valid;
@@ -35,7 +36,7 @@ public class UPIController {
 
     @PostMapping("/validate")
     public ResponseEntity<APIResponseDTO> validate(@Valid @RequestBody UPIValidationRequestDTO upiValidationRequestDTO) {
-        var validationResponse = upiService.validateUPIid(upiValidationRequestDTO.upiId());
+        ValidationResponseDTO validationResponse = upiService.validateUPIid(upiValidationRequestDTO.upiId());
         return ResponseEntity.ok(
                 APIResponseDTO.builder()
                         .statusModel(new StatusModel(200, SUCCESS))
